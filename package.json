@@ -1,0 +1,107 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "rayvoice",
+  "title": "RayVoice",
+  "description": "Turn your latest clipboarded text into an audio podcast with ElevenLabs Eleven v4 TTS. Single-voice narration + two-host dialogue.",
+  "icon": "icon.png",
+  "author": "francesco_oddo",
+  "categories": ["Communication", "Fun", "Productivity"],
+  "license": "MIT",
+  "platforms": ["macOS"],
+  "commands": [
+    {
+      "name": "clipboard-speech",
+      "title": "Speak Clipboard as Podcast",
+      "description": "Read clipboard text aloud with ElevenLabs Eleven v4 (single voice). Saves MP3 and auto-plays.",
+      "mode": "view"
+    },
+    {
+      "name": "clipboard-podcast",
+      "title": "Clipboard to 2-Host Podcast",
+      "description": "Turn clipboard text into a two-host podcast dialogue with ElevenLabs Text-to-Dialogue (Eleven v4).",
+      "mode": "view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "apiKey",
+      "title": "ElevenLabs API Key",
+      "description": "Get one at https://elevenlabs.io/app/settings/api-keys (free tier includes ~10 min/mo).",
+      "type": "password",
+      "required": true,
+      "placeholder": "sk_..."
+    },
+    {
+      "name": "voiceId",
+      "title": "Voice ID (Host 1 / Narrator)",
+      "description": "Voice ID from elevenlabs.io/app/voice-library. Default is Rachel.",
+      "type": "textfield",
+      "required": false,
+      "placeholder": "21m00Tcm4TlvDq8ikWAM",
+      "default": "21m00Tcm4TlvDq8ikWAM"
+    },
+    {
+      "name": "voiceId2",
+      "title": "Voice ID (Host 2, dialogue only)",
+      "description": "Second voice for the 2-host podcast command. Default is George.",
+      "type": "textfield",
+      "required": false,
+      "placeholder": "JBFqnCBsd6RMkjVDRZzb",
+      "default": "JBFqnCBsd6RMkjVDRZzb"
+    },
+    {
+      "name": "modelId",
+      "title": "ElevenLabs Model",
+      "description": "eleven_v4 is the latest + most expressive (Sep 2026). Turbo is faster, Flash is cheapest.",
+      "type": "dropdown",
+      "required": false,
+      "default": "eleven_v4",
+      "data": [
+        { "title": "Eleven v4 (latest, most expressive)", "value": "eleven_v4" },
+        { "title": "Eleven v4 Turbo (realtime, ~100ms)", "value": "eleven_v4_turbo" },
+        { "title": "Eleven v3 (expressive, previous gen)", "value": "eleven_v3" },
+        { "title": "Multilingual v2 (most stable)", "value": "eleven_multilingual_v2" },
+        { "title": "Flash v2.5 (fastest, cheapest)", "value": "eleven_flash_v2_5" }
+      ]
+    },
+    {
+      "name": "outputFormat",
+      "title": "Audio Format",
+      "description": "MP3 128kbps works everywhere. Lower bitrates save credits/bandwidth slightly.",
+      "type": "dropdown",
+      "required": false,
+      "default": "mp3_44100_128",
+      "data": [
+        { "title": "MP3 44.1kHz 128kbps (default)", "value": "mp3_44100_128" },
+        { "title": "MP3 44.1kHz 64kbps", "value": "mp3_44100_64" },
+        { "title": "MP3 22kHz 32kbps (smallest)", "value": "mp3_22050_32" }
+      ]
+    },
+    {
+      "name": "autoPlay",
+      "title": "Playback",
+      "description": "Auto-play the MP3 after generating it.",
+      "type": "checkbox",
+      "required": false,
+      "label": "Auto-play audio",
+      "default": true
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.99.0",
+    "@raycast/utils": "^1.17.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^2.0.0",
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.5.0"
+  },
+  "scripts": {
+    "build": "ray build",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --fix",
+    "lint": "ray lint"
+  }
+}
