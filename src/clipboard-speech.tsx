@@ -10,9 +10,9 @@ import {
 } from "@raycast/api";
 import type { ChildProcess } from "node:child_process";
 import { useEffect, useRef, useState } from "react";
-import { playMp3, preview, saveMp3, stopAllAfplay, stopAudio } from "./lib/audio";
+import { playMp3Wait, preview, saveMp3Part, stopAllAfplay, stopAudio } from "./lib/audio";
 import { resolveClipboardText } from "./lib/clipboard";
-import { chunkText, convertTts, MODEL_CHAR_LIMITS } from "./lib/elevenlabs";
+import { chunkText, convertTts, MODEL_CHAR_LIMITS, parallel } from "./lib/elevenlabs";
 import { cleanForSpeech } from "./lib/script";
 
 interface Prefs {
@@ -25,17 +25,36 @@ interface Prefs {
 
 type Phase = "reading" | "generating" | "ready" | "error";
 
+/** Small pieces = first audio fast + requests run side by side. */
+const PIECE_TARGET = 2500;
+const MAX_PARALLEL = 3;
+
 export default function Command() {
   const [phase, setPhase] = useState<Phase>("reading");
   const [rawText, setRawText] = useState("");
-  const [audioPath, setAudioPath] = useState<string | null>(null);
+  const [partPaths, setPartPaths] = useState<string[]>([]);
+  const [partIndex, setPartIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [meta, setMeta] = useState("");
   const [playing, setPlaying] = useState(false);
   const player = useRef<ChildProcess | null>(null);
+  const stopRequested = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
+
+    const playChain = async (paths: string[]) => {
+      setPlaying(true);
+      for (let i = 0; i < paths.length; i++) {
+        if (cancelled || stopRequested.current) break;
+        if (!cancelled) setPartIndex(i);
+        const { done, child } = playMp3Wait(paths[i]);
+        player.current = child;
+        await done;
+      }
+      if (!cancelled) setPlaying(false);
+    };
+
     (async () => {
       try {
         const prefs = getPreferenceValues<Prefs>();
@@ -57,59 +76,50 @@ export default function Command() {
           setPhase("generating");
         }
 
-        const modelId = prefs.modelId || "eleven_v4";
+        const modelId = prefs.modelId || "eleven_v4_turbo";
         const voiceId = prefs.voiceId?.trim() || "21m00Tcm4TlvDq8ikWAM";
         const outputFormat = prefs.outputFormat || "mp3_44100_128";
         const limit = MODEL_CHAR_LIMITS[modelId] ?? 10_000;
 
         const speech = cleanForSpeech(clip);
-        const chunks = chunkText(speech, limit);
+        const chunks = chunkText(speech, Math.min(limit, PIECE_TARGET));
         if (!cancelled) {
           setMeta(
-            `${clip.length.toLocaleString()} chars · ${chunks.length} request${chunks.length > 1 ? "s" : ""} · ${modelId} · voice ${voiceId.slice(0, 8)}…`
+            `${clip.length.toLocaleString()} chars · ${chunks.length} part${chunks.length > 1 ? "s" : ""} in parallel · ${modelId}`
           );
           await showToast({
             style: Toast.Style.Animated,
             title:
-              chunks.length > 1 ? `Narrating in ${chunks.length} parts…` : "Narrating clipboard…",
+              chunks.length > 1
+                ? `Voicing ${chunks.length} parts in parallel…`
+                : "Voicing clipboard…",
           });
         }
 
-        const parts: Buffer[] = [];
-        for (let i = 0; i < chunks.length; i++) {
-          if (cancelled) return;
-          if (chunks.length > 1) {
-            await showToast({
-              style: Toast.Style.Animated,
-              title: `Part ${i + 1}/${chunks.length}…`,
-            });
-          }
-          parts.push(
-            await convertTts({
-              apiKey: prefs.apiKey,
-              voiceId,
-              modelId,
-              text: chunks[i],
-              outputFormat,
-            })
-          );
-        }
-        const audio = Buffer.concat(parts);
-        const path = await saveMp3(audio, "rayvoice-speech");
+        // All parts generate at once; playback starts as soon as part 1 lands.
+        const paths = await parallel(chunks, MAX_PARALLEL, async (text, i) => {
+          const audio = await convertTts({
+            apiKey: prefs.apiKey,
+            voiceId,
+            modelId,
+            text,
+            outputFormat,
+          });
+          return saveMp3Part(audio, "rayvoice-speech", i, chunks.length);
+        });
         if (cancelled) return;
 
-        setAudioPath(path);
+        setPartPaths(paths);
         setPhase("ready");
         await showToast({
           style: Toast.Style.Success,
-          title: "Podcast audio ready",
-          message: path,
+          title: paths.length > 1 ? "Playing part 1 — rest generating…" : "Podcast audio ready",
+          message: paths[0],
         });
 
         if (prefs.autoPlay !== false) {
-          player.current = playMp3(path);
-          setPlaying(true);
-          player.current.on("exit", () => !cancelled && setPlaying(false));
+          stopRequested.current = false;
+          await playChain(paths);
         }
       } catch (e) {
         if (cancelled) return;
@@ -125,16 +135,38 @@ export default function Command() {
     })();
     return () => {
       cancelled = true;
+      stopRequested.current = true;
       stopAudio(player.current);
       player.current = null;
     };
   }, []);
 
+  const stop = async () => {
+    stopRequested.current = true;
+    stopAudio(player.current);
+    await stopAllAfplay();
+    setPlaying(false);
+  };
+
+  const replay = async () => {
+    stopRequested.current = false;
+    const paths = partPaths;
+    setPlaying(true);
+    for (let i = 0; i < paths.length; i++) {
+      if (stopRequested.current) break;
+      setPartIndex(i);
+      const { done, child } = playMp3Wait(paths[i]);
+      player.current = child;
+      await done;
+    }
+    setPlaying(false);
+  };
+
   const markdown =
     phase === "error"
       ? `# ⚠️ RayVoice failed\n\n${error}\n\n## Fix it\n- Copy text first (this reads your latest clipboard).\n- Preferences → Extensions → RayVoice: set your ElevenLabs API key (https://elevenlabs.io/app/settings/api-keys).\n- Free tier ≈ 10 min/mo. 402 = out of credits.`
       : phase === "ready"
-        ? `# 🎙️ Clipboard → Podcast\n\n**${meta}**\n\n${playing ? "▶️ Playing…" : "⏸️ Paused / finished"}\n\n📁 \`${audioPath}\`\n\n---\n\n${preview(rawText)}`
+        ? `# 🎙️ Clipboard → Podcast\n\n**${meta}**\n\n${playing ? `▶️ Playing part ${partIndex + 1}/${partPaths.length}…` : "⏸️ Paused / finished"}\n\n📁 \`${partPaths[0] ?? ""}\`${partPaths.length > 1 ? ` (+${partPaths.length - 1} more parts)` : ""}\n\n---\n\n${preview(rawText)}`
         : `# 🎙️ RayVoice\n\n${phase === "reading" ? "Reading clipboard…" : `Generating audio…\n\n**${meta || "contacting ElevenLabs…"}**`}\n\n${rawText ? `---\n\n${preview(rawText, 600)}` : ""}`;
 
   return (
@@ -143,36 +175,19 @@ export default function Command() {
       markdown={markdown}
       actions={
         <ActionPanel>
-          {phase === "ready" && audioPath && (
+          {phase === "ready" && partPaths.length > 0 && (
             <>
               {playing ? (
-                <Action
-                  title="Stop Playback"
-                  icon={Icon.Stop}
-                  onAction={async () => {
-                    stopAudio(player.current);
-                    await stopAllAfplay();
-                    setPlaying(false);
-                  }}
-                />
+                <Action title="Stop Playback" icon={Icon.Stop} onAction={stop} />
               ) : (
-                <Action
-                  title="Play Again"
-                  icon={Icon.Play}
-                  onAction={() => {
-                    if (!audioPath) return;
-                    player.current = playMp3(audioPath);
-                    setPlaying(true);
-                    player.current.on("exit", () => setPlaying(false));
-                  }}
-                />
+                <Action title="Play Again" icon={Icon.Play} onAction={replay} />
               )}
               <Action
                 title="Reveal in Finder"
                 icon={Icon.Finder}
-                onAction={() => showInFinder(audioPath)}
+                onAction={() => showInFinder(partPaths[0])}
               />
-              <Action.CopyToClipboard title="Copy File Path" content={audioPath} />
+              <Action.CopyToClipboard title="Copy File Paths" content={partPaths.join("\n")} />
               <Action.CopyToClipboard title="Copy Transcript" content={rawText} />
             </>
           )}

@@ -48,7 +48,7 @@ export default function Command() {
             "Missing ElevenLabs API key. Set it in Raycast Preferences → Extensions → RayVoice."
           );
 
-        const modelId = prefs.modelId || "eleven_v4";
+        const modelId = prefs.modelId || "eleven_v4_turbo";
         const voiceId = prefs.voiceId?.trim() || "21m00Tcm4TlvDq8ikWAM";
         const outputFormat = prefs.outputFormat || "mp3_44100_128";
 

@@ -90,6 +90,24 @@ export async function convertDialogue(opts: {
   return Buffer.from(await res.arrayBuffer());
 }
 
+/** Run async jobs with at most `limit` in flight. Results keep input order. */
+export async function parallel<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(Math.max(limit, 1), items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i], i);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 /** Split long text into chunks that fit a model's char limit, preferring paragraph/sentence boundaries. */
 export function chunkText(text: string, limit: number): string[] {
   const clean = text.replace(/\s+\n/g, "\n").trim();

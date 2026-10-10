@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Speed: default model is now eleven_v4_turbo; long texts split into ~2.5k-char parts voiced 3-at-a-time, and playback starts with part 1 while the rest generate.
 - Play Welcome Intro: predefined tour script, no clipboard needed (setup test).
 - Clipboard guard: if the clipboard holds your API key, it's skipped, the previous item is used, and the clipboard is replaced with the real text.
 

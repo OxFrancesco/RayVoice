@@ -1,6 +1,6 @@
 # RayVoice 🎙️
 
-Turn your latest clipboarded text into an audio podcast with the latest ElevenLabs TTS model (**`eleven_v4`**, Sep 2026 — with `eleven_v4_turbo` / `eleven_v3` fallback).
+Turn your latest clipboarded text into an audio podcast with ElevenLabs. Default model is **`eleven_v4_turbo`** (same expressiveness as v4, ~100ms latency) — switch to `eleven_v4` in preferences for max quality.
 
 ## Commands
 

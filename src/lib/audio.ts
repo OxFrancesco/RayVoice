@@ -16,6 +16,21 @@ export async function saveMp3(audio: Buffer, prefix: string): Promise<string> {
   return path;
 }
 
+/** Save one part of a multi-part generation. Unique names even when called in the same second. */
+export async function saveMp3Part(
+  audio: Buffer,
+  prefix: string,
+  index: number,
+  total: number
+): Promise<string> {
+  const dir = downloadsDir();
+  await mkdir(dir, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  const path = join(dir, `${prefix}-p${index + 1}of${total}-${stamp}.mp3`);
+  await writeFile(path, audio);
+  return path;
+}
+
 export function slug(text: string, max = 60): string {
   return (
     text
@@ -31,6 +46,16 @@ export function playMp3(filePath: string): ChildProcess {
   const child = spawn("afplay", [filePath], { stdio: "ignore", detached: false });
   child.on("error", () => undefined);
   return child;
+}
+
+/** Play and wait until the file finishes (or errors). Returns the child so it can be killed. */
+export function playMp3Wait(filePath: string): { done: Promise<void>; child: ChildProcess } {
+  const child = spawn("afplay", [filePath], { stdio: "ignore", detached: false });
+  const done = new Promise<void>((resolve) => {
+    child.on("exit", () => resolve());
+    child.on("error", () => resolve());
+  });
+  return { done, child };
 }
 
 export function stopAudio(child: ChildProcess | null): void {

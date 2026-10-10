@@ -12,7 +12,7 @@ import type { ChildProcess } from "node:child_process";
 import { useEffect, useRef, useState } from "react";
 import { playMp3, preview, saveMp3, stopAllAfplay, stopAudio } from "./lib/audio";
 import { resolveClipboardText } from "./lib/clipboard";
-import { batchTurns, convertDialogue } from "./lib/elevenlabs";
+import { batchTurns, convertDialogue, parallel } from "./lib/elevenlabs";
 import { buildPodcastScript, cleanForSpeech } from "./lib/script";
 
 interface Prefs {
@@ -58,12 +58,11 @@ export default function Command() {
 
         const voiceA = prefs.voiceId?.trim() || "21m00Tcm4TlvDq8ikWAM"; // Rachel
         const voiceB = prefs.voiceId2?.trim() || "JBFqnCBsd6RMkjVDRZzb"; // George
-        const requested = prefs.modelId || "eleven_v4";
-        // Dialogue endpoint docs default to eleven_v3; v4 family supports it. Flash/Multilingual
-        // don't do dialogue well, so coerce those to eleven_v4.
+        const requested = prefs.modelId || "eleven_v4_turbo";
+        // Dialogue needs a v3/v4-family model; coerce the others to turbo.
         const modelId =
           requested === "eleven_flash_v2_5" || requested === "eleven_multilingual_v2"
-            ? "eleven_v4"
+            ? "eleven_v4_turbo"
             : requested;
         const outputFormat = prefs.outputFormat || "mp3_44100_128";
 
@@ -77,22 +76,15 @@ export default function Command() {
           await showToast({ style: Toast.Style.Animated, title: "Writing 2-host script…" });
         }
 
-        const parts: Buffer[] = [];
-        for (let i = 0; i < batches.length; i++) {
-          if (cancelled) return;
-          await showToast({
-            style: Toast.Style.Animated,
-            title: `Voicing part ${i + 1}/${batches.length}…`,
-          });
-          parts.push(
-            await convertDialogue({
-              apiKey: prefs.apiKey,
-              inputs: batches[i],
-              modelId,
-              outputFormat,
-            })
-          );
-        }
+        const parts: Buffer[] = await parallel(batches, 3, (inputs) =>
+          convertDialogue({
+            apiKey: prefs.apiKey,
+            inputs,
+            modelId,
+            outputFormat,
+          })
+        );
+        if (cancelled) return;
         const path = await saveMp3(Buffer.concat(parts), "rayvoice-podcast");
         if (cancelled) return;
 
@@ -130,7 +122,7 @@ export default function Command() {
 
   const markdown =
     phase === "error"
-      ? `# ⚠️ RayVoice failed\n\n${error}\n\n## Fix it\n- Copy text first, then re-run.\n- Set your API key in Preferences → Extensions → RayVoice.\n- Dialogue works best with eleven_v4 / eleven_v3 (Flash + Multilingual are auto-upgraded to v4).`
+      ? `# ⚠️ RayVoice failed\n\n${error}\n\n## Fix it\n- Copy text first, then re-run.\n- Set your API key in Preferences → Extensions → RayVoice.\n- Dialogue works best with eleven_v4_turbo / eleven_v4 / eleven_v3 (Flash + Multilingual are auto-upgraded to Turbo).`
       : phase === "ready"
         ? `# 🎙️🎙️ 2-Host Podcast\n\n**${meta}**\n\n${playing ? "▶️ Playing…" : "⏸️ Paused / finished"}\n\n📁 \`${audioPath}\`\n\n---\n\n${preview(readable, 2200)}`
         : `# 🎙️🎙️ RayVoice\n\n${phase === "reading" ? "Reading clipboard…" : `Voicing your podcast…\n\n**${meta || "writing script…"}**`}\n\n${readable ? `---\n\n${preview(readable, 600)}` : ""}`;

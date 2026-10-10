@@ -58,16 +58,16 @@
     {
       "name": "modelId",
       "title": "ElevenLabs Model",
-      "description": "eleven_v4 is the latest + most expressive (Sep 2026). Turbo is faster, Flash is cheapest.",
+      "description": "Turbo is ~10x faster with the same expressiveness. v4 max quality, Flash fastest/cheapest.",
       "type": "dropdown",
       "required": false,
-      "default": "eleven_v4",
+      "default": "eleven_v4_turbo",
       "data": [
-        { "title": "Eleven v4 (latest, most expressive)", "value": "eleven_v4" },
-        { "title": "Eleven v4 Turbo (realtime, ~100ms)", "value": "eleven_v4_turbo" },
+        { "title": "Eleven v4 Turbo (fast + expressive, recommended)", "value": "eleven_v4_turbo" },
+        { "title": "Eleven v4 (max quality, slower)", "value": "eleven_v4" },
         { "title": "Eleven v3 (expressive, previous gen)", "value": "eleven_v3" },
         { "title": "Multilingual v2 (most stable)", "value": "eleven_multilingual_v2" },
-        { "title": "Flash v2.5 (fastest, cheapest)", "value": "eleven_flash_v2_5" }
+        { "title": "Flash v2.5 (fastest, cheapest, flat)", "value": "eleven_flash_v2_5" }
       ]
     },
     {
