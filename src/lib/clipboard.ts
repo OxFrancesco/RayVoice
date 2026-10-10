@@ -18,7 +18,14 @@ export async function resolveClipboardText(
   const stored = apiKey.trim();
   const isSecret = (s: string) => s.trim() === stored || looksLikeKey(s);
 
-  const latest = ((await Clipboard.readText()) ?? "").trim();
+  // Read the full clipboard entry so images/files are detected, not just text.
+  const current = await Clipboard.read();
+  if (current.file && !current.text?.trim()) {
+    throw new Error(
+      "Your clipboard holds an image or file, not text. Copy some text first, then re-run."
+    );
+  }
+  const latest = (current.text ?? "").trim();
   if (latest && !isSecret(latest)) return { text: latest, usedHistory: false };
 
   for (let offset = 1; offset <= 5; offset++) {
