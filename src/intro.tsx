@@ -19,6 +19,7 @@ interface Prefs {
   modelId?: string;
   outputFormat?: string;
   autoPlay?: boolean;
+  playbackRate?: string;
 }
 
 const INTRO_SCRIPT = [
@@ -51,7 +52,7 @@ export default function Command() {
         const modelId = prefs.modelId || "eleven_v4_turbo";
         const voiceId = prefs.voiceId?.trim() || "21m00Tcm4TlvDq8ikWAM";
         const outputFormat = prefs.outputFormat || "mp3_44100_128";
-
+        const rate = parseFloat(prefs.playbackRate || "1") || 1;
         await showToast({ style: Toast.Style.Animated, title: "Voicing welcome intro…" });
         const audio = await convertTts({
           apiKey: prefs.apiKey,
@@ -72,7 +73,7 @@ export default function Command() {
         });
 
         if (prefs.autoPlay !== false) {
-          player.current = playMp3(path);
+          player.current = playMp3(path, rate);
           setPlaying(true);
           player.current.on("exit", () => !cancelled && setPlaying(false));
         }
@@ -120,7 +121,8 @@ export default function Command() {
                   icon={Icon.Play}
                   onAction={() => {
                     if (!audioPath) return;
-                    player.current = playMp3(audioPath);
+                    const rate = parseFloat(getPreferenceValues<Prefs>().playbackRate || "1") || 1;
+                    player.current = playMp3(audioPath, rate);
                     setPlaying(true);
                     player.current.on("exit", () => setPlaying(false));
                   }}

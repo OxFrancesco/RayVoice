@@ -22,6 +22,7 @@ interface Prefs {
   modelId?: string;
   outputFormat?: string;
   autoPlay?: boolean;
+  playbackRate?: string;
 }
 
 type Phase = "reading" | "generating" | "ready" | "error";
@@ -65,24 +66,28 @@ export default function Command() {
             ? "eleven_v4_turbo"
             : requested;
         const outputFormat = prefs.outputFormat || "mp3_44100_128";
+        const rate = parseFloat(prefs.playbackRate || "1") || 1;
 
         const { turns, readable: script } = buildPodcastScript(clip, voiceA, voiceB);
         const batches = batchTurns(turns, 2000);
         if (!cancelled) {
           setReadable(script);
           setMeta(
-            `${clip.length.toLocaleString()} chars → ${turns.length} turns · ${batches.length} request${batches.length > 1 ? "s" : ""} · ${modelId}`
+            `${clip.length.toLocaleString()} chars → ${turns.length} turns · ${batches.length} request${batches.length > 1 ? "s" : ""} · ${modelId} · ${rate}x`
           );
           await showToast({ style: Toast.Style.Animated, title: "Writing 2-host script…" });
         }
 
-        const parts: Buffer[] = await parallel(batches, 3, (inputs) =>
-          convertDialogue({
-            apiKey: prefs.apiKey,
-            inputs,
-            modelId,
-            outputFormat,
-          })
+        const parts: Buffer[] = await parallel(
+          batches,
+          2, // free tier allows 5 concurrent; stay well under it (429s auto-retry anyway)
+          (inputs) =>
+            convertDialogue({
+              apiKey: prefs.apiKey,
+              inputs,
+              modelId,
+              outputFormat,
+            })
         );
         if (cancelled) return;
         const path = await saveMp3(Buffer.concat(parts), "rayvoice-podcast");
@@ -97,7 +102,7 @@ export default function Command() {
         });
 
         if (prefs.autoPlay !== false) {
-          player.current = playMp3(path);
+          player.current = playMp3(path, rate);
           setPlaying(true);
           player.current.on("exit", () => !cancelled && setPlaying(false));
         }
@@ -151,7 +156,8 @@ export default function Command() {
                   icon={Icon.Play}
                   onAction={() => {
                     if (!audioPath) return;
-                    player.current = playMp3(audioPath);
+                    const rate = parseFloat(getPreferenceValues<Prefs>().playbackRate || "1") || 1;
+                    player.current = playMp3(audioPath, rate);
                     setPlaying(true);
                     player.current.on("exit", () => setPlaying(false));
                   }}

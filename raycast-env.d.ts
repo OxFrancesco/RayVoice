@@ -19,7 +19,9 @@ type ExtensionPreferences = {
   /** Audio Format - MP3 128kbps works everywhere. Lower bitrates save credits/bandwidth slightly. */
   "outputFormat": "mp3_44100_128" | "mp3_44100_64" | "mp3_22050_32",
   /** Playback - Auto-play the MP3 after generating it. */
-  "autoPlay": boolean
+  "autoPlay": boolean,
+  /** Playback Speed - How fast to play the audio. Note: afplay speeds up pitch too above 1x. */
+  "playbackRate": "1" | "1.25" | "1.5" | "1.75" | "2"
 }
 
 /** Preferences accessible in all the extension's commands */

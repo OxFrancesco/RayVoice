@@ -21,13 +21,15 @@ interface Prefs {
   modelId?: string;
   outputFormat?: string;
   autoPlay?: boolean;
+  playbackRate?: string;
 }
 
 type Phase = "reading" | "generating" | "ready" | "error";
 
 /** Small pieces = first audio fast + requests run side by side. */
 const PIECE_TARGET = 2500;
-const MAX_PARALLEL = 3;
+/** Free tier allows 5 concurrent requests; stay well under it. */
+const MAX_PARALLEL = 2;
 
 export default function Command() {
   const [phase, setPhase] = useState<Phase>("reading");
@@ -43,12 +45,12 @@ export default function Command() {
   useEffect(() => {
     let cancelled = false;
 
-    const playChain = async (paths: string[]) => {
+    const playChain = async (paths: string[], rate: number) => {
       setPlaying(true);
       for (let i = 0; i < paths.length; i++) {
         if (cancelled || stopRequested.current) break;
         if (!cancelled) setPartIndex(i);
-        const { done, child } = playMp3Wait(paths[i]);
+        const { done, child } = playMp3Wait(paths[i], rate);
         player.current = child;
         await done;
       }
@@ -79,13 +81,14 @@ export default function Command() {
         const modelId = prefs.modelId || "eleven_v4_turbo";
         const voiceId = prefs.voiceId?.trim() || "21m00Tcm4TlvDq8ikWAM";
         const outputFormat = prefs.outputFormat || "mp3_44100_128";
+        const rate = parseFloat(prefs.playbackRate || "1") || 1;
         const limit = MODEL_CHAR_LIMITS[modelId] ?? 10_000;
 
         const speech = cleanForSpeech(clip);
         const chunks = chunkText(speech, Math.min(limit, PIECE_TARGET));
         if (!cancelled) {
           setMeta(
-            `${clip.length.toLocaleString()} chars · ${chunks.length} part${chunks.length > 1 ? "s" : ""} in parallel · ${modelId}`
+            `${clip.length.toLocaleString()} chars · ${chunks.length} part${chunks.length > 1 ? "s" : ""} in parallel · ${modelId} · ${rate}x`
           );
           await showToast({
             style: Toast.Style.Animated,
@@ -119,7 +122,7 @@ export default function Command() {
 
         if (prefs.autoPlay !== false) {
           stopRequested.current = false;
-          await playChain(paths);
+          await playChain(paths, rate);
         }
       } catch (e) {
         if (cancelled) return;
@@ -150,12 +153,13 @@ export default function Command() {
 
   const replay = async () => {
     stopRequested.current = false;
+    const rate = parseFloat(getPreferenceValues<Prefs>().playbackRate || "1") || 1;
     const paths = partPaths;
     setPlaying(true);
     for (let i = 0; i < paths.length; i++) {
       if (stopRequested.current) break;
       setPartIndex(i);
-      const { done, child } = playMp3Wait(paths[i]);
+      const { done, child } = playMp3Wait(paths[i], rate);
       player.current = child;
       await done;
     }

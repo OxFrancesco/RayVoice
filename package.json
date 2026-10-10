@@ -91,6 +91,21 @@
       "required": false,
       "label": "Auto-play audio",
       "default": true
+    },
+    {
+      "name": "playbackRate",
+      "title": "Playback Speed",
+      "description": "How fast to play the audio. Note: afplay speeds up pitch too above 1x.",
+      "type": "dropdown",
+      "required": false,
+      "default": "1",
+      "data": [
+        { "title": "1x (normal)", "value": "1" },
+        { "title": "1.25x", "value": "1.25" },
+        { "title": "1.5x", "value": "1.5" },
+        { "title": "1.75x", "value": "1.75" },
+        { "title": "2x", "value": "2" }
+      ]
     }
   ],
   "dependencies": {

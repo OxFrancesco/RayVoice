@@ -41,16 +41,21 @@ export function slug(text: string, max = 60): string {
   );
 }
 
-/** Play with macOS afplay. Returns the child so the UI can stop it. */
-export function playMp3(filePath: string): ChildProcess {
-  const child = spawn("afplay", [filePath], { stdio: "ignore", detached: false });
+/** Play with macOS afplay. Rate >1 speeds up (and raises pitch). */
+export function playMp3(filePath: string, rate = 1): ChildProcess {
+  const args = rate !== 1 ? ["-r", String(rate), filePath] : [filePath];
+  const child = spawn("afplay", args, { stdio: "ignore", detached: false });
   child.on("error", () => undefined);
   return child;
 }
 
 /** Play and wait until the file finishes (or errors). Returns the child so it can be killed. */
-export function playMp3Wait(filePath: string): { done: Promise<void>; child: ChildProcess } {
-  const child = spawn("afplay", [filePath], { stdio: "ignore", detached: false });
+export function playMp3Wait(
+  filePath: string,
+  rate = 1
+): { done: Promise<void>; child: ChildProcess } {
+  const args = rate !== 1 ? ["-r", String(rate), filePath] : [filePath];
+  const child = spawn("afplay", args, { stdio: "ignore", detached: false });
   const done = new Promise<void>((resolve) => {
     child.on("exit", () => resolve());
     child.on("error", () => resolve());

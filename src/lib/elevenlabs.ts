@@ -46,28 +46,58 @@ async function throwIfApiError(res: Response, context: string): Promise<never> {
   } catch {
     detail = "";
   }
-  if (status === 401) throw new Error(`Invalid ElevenLabs API key. Check Preferences. ${detail}`);
+  if (status === 401)
+    throw new ApiError(status, `Invalid ElevenLabs API key. Check Preferences. ${detail}`);
   if (status === 402)
-    throw new Error(`Out of ElevenLabs credits. Top up at elevenlabs.io. ${detail}`);
-  if (status === 422) throw new Error(`ElevenLabs rejected the request (${context}). ${detail}`);
+    throw new ApiError(status, `Out of ElevenLabs credits. Top up at elevenlabs.io. ${detail}`);
+  if (status === 422)
+    throw new ApiError(status, `ElevenLabs rejected the request (${context}). ${detail}`);
   if (status === 429)
-    throw new Error(`ElevenLabs rate limit hit. Wait a moment and retry. ${detail}`);
-  throw new Error(`ElevenLabs error ${status} (${context}). ${detail}`);
+    throw new ApiError(status, `ElevenLabs rate limit hit. Wait a moment and retry. ${detail}`);
+  throw new ApiError(status, `ElevenLabs error ${status} (${context}). ${detail}`);
+}
+
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+/** Retry rate-limit (429) responses with exponential backoff + jitter. */
+async function withRetry<T>(fn: () => Promise<T>, attempts = 4): Promise<T> {
+  let last: unknown;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      last = e;
+      if (e instanceof ApiError && e.status === 429 && attempt < attempts - 1) {
+        await new Promise((r) => setTimeout(r, 1500 * 2 ** attempt + Math.random() * 500));
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw last;
 }
 
 export async function convertTts(req: TtsRequest): Promise<Buffer> {
-  const url = `${API_BASE}/v1/text-to-speech/${encodeURIComponent(req.voiceId)}?output_format=${encodeURIComponent(req.outputFormat)}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "xi-api-key": req.apiKey,
-      "Content-Type": "application/json",
-      Accept: "audio/mpeg",
-    },
-    body: JSON.stringify({ text: req.text, model_id: req.modelId }),
+  return withRetry(async () => {
+    const url = `${API_BASE}/v1/text-to-speech/${encodeURIComponent(req.voiceId)}?output_format=${encodeURIComponent(req.outputFormat)}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "xi-api-key": req.apiKey,
+        "Content-Type": "application/json",
+        Accept: "audio/mpeg",
+      },
+      body: JSON.stringify({ text: req.text, model_id: req.modelId }),
+    });
+    if (!res.ok) await throwIfApiError(res, "tts");
+    return Buffer.from(await res.arrayBuffer());
   });
-  if (!res.ok) await throwIfApiError(res, "tts");
-  return Buffer.from(await res.arrayBuffer());
 }
 
 export async function convertDialogue(opts: {
@@ -76,18 +106,20 @@ export async function convertDialogue(opts: {
   modelId: string;
   outputFormat: string;
 }): Promise<Buffer> {
-  const url = `${API_BASE}/v1/text-to-dialogue?output_format=${encodeURIComponent(opts.outputFormat)}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "xi-api-key": opts.apiKey,
-      "Content-Type": "application/json",
-      Accept: "audio/mpeg",
-    },
-    body: JSON.stringify({ inputs: opts.inputs, model_id: opts.modelId }),
+  return withRetry(async () => {
+    const url = `${API_BASE}/v1/text-to-dialogue?output_format=${encodeURIComponent(opts.outputFormat)}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "xi-api-key": opts.apiKey,
+        "Content-Type": "application/json",
+        Accept: "audio/mpeg",
+      },
+      body: JSON.stringify({ inputs: opts.inputs, model_id: opts.modelId }),
+    });
+    if (!res.ok) await throwIfApiError(res, "dialogue");
+    return Buffer.from(await res.arrayBuffer());
   });
-  if (!res.ok) await throwIfApiError(res, "dialogue");
-  return Buffer.from(await res.arrayBuffer());
 }
 
 /** Run async jobs with at most `limit` in flight. Results keep input order. */
