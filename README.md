@@ -10,6 +10,7 @@ Turn your latest clipboarded text into an audio podcast with ElevenLabs. Default
 | **Clipboard to 2-Host Podcast** (`clipboard-podcast`) | Rewrites clipboard text into an Alex + Sam dialogue (intro → alternating turns → outro) via ElevenLabs **Text-to-Dialogue**, with v4 audio tags (`[excited]`, `[curious]`…). |
 | **Play Welcome Intro** (`intro`) | Predefined tour of the extension with a fixed script. Needs no clipboard — run it right after setup to test your key and voice. |
 | **Browse Past Episodes** (`history`) | One bucket for everything generated: replay audio, read transcripts, delete old episodes. |
+| **Stop Playback Now** (`stop`) | No-view kill switch: instantly silences background audio from anywhere in Raycast. |
 
 Every run saves its transcript as a `.txt` sidecar next to the MP3, so the bucket can show and search it.
 

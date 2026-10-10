@@ -36,6 +36,8 @@ declare namespace Preferences {
   export type Intro = ExtensionPreferences & {}
   /** Preferences accessible in the `history` command */
   export type History = ExtensionPreferences & {}
+  /** Preferences accessible in the `stop` command */
+  export type Stop = ExtensionPreferences & {}
 }
 
 declare namespace Arguments {
@@ -47,5 +49,7 @@ declare namespace Arguments {
   export type Intro = {}
   /** Arguments passed to the `history` command */
   export type History = {}
+  /** Arguments passed to the `stop` command */
+  export type Stop = {}
 }
 

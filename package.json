@@ -32,6 +32,12 @@
       "title": "Browse Past Episodes",
       "description": "All your generated audio + transcripts in one place. Replay, read, or delete them.",
       "mode": "view"
+    },
+    {
+      "name": "stop",
+      "title": "Stop Playback Now",
+      "description": "Instantly silence any RayVoice audio playing in the background.",
+      "mode": "no-view"
     }
   ],
   "preferences": [

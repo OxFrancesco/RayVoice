@@ -8,6 +8,8 @@
 - Playback speed preference (1x–2x via afplay `-r`), changeable mid-play from inside each command (⌘S).
 - Past-episodes bucket (`history` command) with transcripts, replay, and delete.
 - Audio keeps playing when the Raycast view closes (detached afplay; Stop uses kill).
+- Global `Stop Playback Now` (no-view) kill switch.
+- Parallel parts guaranteed in order: strict index-ordered playback + one united MP3 joined in order + one united transcript.
 - Rate-limit resilience: max 2 parallel requests + automatic retry with backoff on 429s.
 
 - Speak Clipboard as Podcast (single-voice `eleven_v4` TTS, chunked, MP3 save + auto-play).

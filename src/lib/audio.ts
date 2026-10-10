@@ -19,17 +19,18 @@ export async function saveMp3(audio: Buffer, prefix: string, stamp?: string): Pr
   return path;
 }
 
-/** Save one part of a multi-part generation. Unique names even when called in the same second. */
+/** Save one part of a multi-part generation to a scratch dir (not shown in history). */
 export async function saveMp3Part(
   audio: Buffer,
   prefix: string,
   index: number,
   total: number,
-  stamp?: string
+  stamp?: string,
+  dir?: string
 ): Promise<string> {
-  const dir = downloadsDir();
-  await mkdir(dir, { recursive: true });
-  const path = join(dir, `${prefix}-${stamp ?? newRunStamp()}-p${index + 1}of${total}.mp3`);
+  const out = dir ?? downloadsDir();
+  await mkdir(out, { recursive: true });
+  const path = join(out, `${prefix}-${stamp ?? newRunStamp()}-p${index + 1}of${total}.mp3`);
   await writeFile(path, audio);
   return path;
 }
