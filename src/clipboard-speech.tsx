@@ -1,7 +1,6 @@
 import {
   Action,
   ActionPanel,
-  Clipboard,
   Detail,
   getPreferenceValues,
   Icon,
@@ -12,6 +11,7 @@ import {
 import type { ChildProcess } from "node:child_process";
 import { useEffect, useRef, useState } from "react";
 import { playMp3, preview, saveMp3, stopAllAfplay, stopAudio } from "./lib/audio";
+import { resolveClipboardText } from "./lib/clipboard";
 import { chunkText, convertTts, MODEL_CHAR_LIMITS } from "./lib/elevenlabs";
 import { cleanForSpeech } from "./lib/script";
 
@@ -44,11 +44,14 @@ export default function Command() {
             "Missing ElevenLabs API key. Set it in Raycast Preferences → Extensions → RayVoice."
           );
 
-        const clip = ((await Clipboard.readText()) ?? "").trim();
-        if (!clip) {
-          throw new Error("Clipboard is empty. Copy some text first, then run this command.");
-        }
+        const { text: clip, usedHistory } = await resolveClipboardText(prefs.apiKey);
         if (clip.length < 3) throw new Error("Clipboard text is too short to narrate.");
+        if (usedHistory) {
+          await showToast({
+            style: Toast.Style.Success,
+            title: "Skipped your API key, using previous clipboard item",
+          });
+        }
         if (!cancelled) {
           setRawText(clip);
           setPhase("generating");
