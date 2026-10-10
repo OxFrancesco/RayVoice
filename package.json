@@ -20,6 +20,12 @@
       "title": "Clipboard to 2-Host Podcast",
       "description": "Turn clipboard text into a two-host podcast dialogue with ElevenLabs Text-to-Dialogue (Eleven v4).",
       "mode": "view"
+    },
+    {
+      "name": "intro",
+      "title": "Play Welcome Intro",
+      "description": "Hear a short predefined RayVoice tour. No clipboard needed — great for testing your setup.",
+      "mode": "view"
     }
   ],
   "preferences": [

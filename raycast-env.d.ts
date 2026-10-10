@@ -30,6 +30,8 @@ declare namespace Preferences {
   export type ClipboardSpeech = ExtensionPreferences & {}
   /** Preferences accessible in the `clipboard-podcast` command */
   export type ClipboardPodcast = ExtensionPreferences & {}
+  /** Preferences accessible in the `intro` command */
+  export type Intro = ExtensionPreferences & {}
 }
 
 declare namespace Arguments {
@@ -37,5 +39,7 @@ declare namespace Arguments {
   export type ClipboardSpeech = {}
   /** Arguments passed to the `clipboard-podcast` command */
   export type ClipboardPodcast = {}
+  /** Arguments passed to the `intro` command */
+  export type Intro = {}
 }
 

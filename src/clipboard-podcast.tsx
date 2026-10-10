@@ -51,7 +51,7 @@ export default function Command() {
         if (usedHistory) {
           await showToast({
             style: Toast.Style.Success,
-            title: "Skipped your API key, using previous clipboard item",
+            title: "Skipped your API key — clipboard updated with the real text",
           });
         }
         if (!cancelled) setPhase("generating");

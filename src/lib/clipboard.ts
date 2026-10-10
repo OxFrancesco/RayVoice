@@ -24,7 +24,12 @@ export async function resolveClipboardText(
   for (let offset = 1; offset <= 5; offset++) {
     try {
       const candidate = ((await Clipboard.readText({ offset })) ?? "").trim();
-      if (candidate && !isSecret(candidate)) return { text: candidate, usedHistory: true };
+      if (candidate && !isSecret(candidate)) {
+        // Replace the key sitting on the clipboard with the real content,
+        // so the secret is gone and the next run just works.
+        await Clipboard.copy(candidate);
+        return { text: candidate, usedHistory: true };
+      }
     } catch {
       break; // no history / history disabled
     }

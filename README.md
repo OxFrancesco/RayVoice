@@ -8,6 +8,7 @@ Turn your latest clipboarded text into an audio podcast with the latest ElevenLa
 |---|---|
 | **Speak Clipboard as Podcast** (`clipboard-speech`) | Narrates clipboard text in a single expressive voice. Chunks long text, concatenates MP3, saves to `~/Downloads/RayVoice/`, auto-plays. |
 | **Clipboard to 2-Host Podcast** (`clipboard-podcast`) | Rewrites clipboard text into an Alex + Sam dialogue (intro → alternating turns → outro) via ElevenLabs **Text-to-Dialogue**, with v4 audio tags (`[excited]`, `[curious]`…). |
+| **Play Welcome Intro** (`intro`) | Predefined tour of the extension with a fixed script. Needs no clipboard — run it right after setup to test your key and voice. |
 
 ## Setup
 
