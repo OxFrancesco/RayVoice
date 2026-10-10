@@ -4,7 +4,6 @@ import {
   Detail,
   getPreferenceValues,
   Icon,
-  LocalStorage,
   showInFinder,
   showToast,
   Toast,
@@ -75,21 +74,7 @@ export default function Command() {
         if (prefs.autoPlay !== false) {
           player.current = playMp3(path);
           setPlaying(true);
-          player.current.on("exit", async () => {
-            if (cancelled) return;
-            setPlaying(false);
-            // One-time nudge: Raycast can't hide commands programmatically,
-            // so point the user at the one-click manual disable.
-            const seen = await LocalStorage.getItem<boolean>("intro-disable-hint");
-            if (!seen) {
-              await LocalStorage.setItem("intro-disable-hint", true);
-              await showToast({
-                style: Toast.Style.Success,
-                title: "Heard it? Hide this command",
-                message: "Raycast → Manage Extensions → RayVoice → toggle off Play Welcome Intro",
-              });
-            }
-          });
+          player.current.on("exit", () => !cancelled && setPlaying(false));
         }
       } catch (e) {
         if (cancelled) return;
