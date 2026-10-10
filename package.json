@@ -26,6 +26,12 @@
       "title": "Play Welcome Intro",
       "description": "Hear a short predefined RayVoice tour. No clipboard needed — great for testing your setup.",
       "mode": "view"
+    },
+    {
+      "name": "history",
+      "title": "Browse Past Episodes",
+      "description": "All your generated audio + transcripts in one place. Replay, read, or delete them.",
+      "mode": "view"
     }
   ],
   "preferences": [

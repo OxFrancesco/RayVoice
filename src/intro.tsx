@@ -10,8 +10,17 @@ import {
 } from "@raycast/api";
 import type { ChildProcess } from "node:child_process";
 import { useEffect, useRef, useState } from "react";
-import { playMp3, preview, saveMp3, stopAllAfplay, stopAudio } from "./lib/audio";
+import {
+  newRunStamp,
+  playMp3,
+  preview,
+  saveMp3,
+  saveTranscript,
+  stopAllAfplay,
+  stopAudio,
+} from "./lib/audio";
 import { convertTts } from "./lib/elevenlabs";
+import { SpeedMenu } from "./lib/SpeedMenu";
 
 interface Prefs {
   apiKey: string;
@@ -35,12 +44,37 @@ type Phase = "generating" | "ready" | "error";
 export default function Command() {
   const [phase, setPhase] = useState<Phase>("generating");
   const [audioPath, setAudioPath] = useState<string | null>(null);
+  const [rate, setRate] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const player = useRef<ChildProcess | null>(null);
+  const mounted = useRef(true);
+
+  const notify = async (t: { style: Toast.Style; title: string; message?: string }) => {
+    if (!mounted.current) return;
+    try {
+      await showToast(t);
+    } catch {
+      // view closed
+    }
+  };
+
+  const playAt = (path: string, r: number) => {
+    player.current = playMp3(path, r);
+    setPlaying(true);
+    player.current.on("exit", () => mounted.current && setPlaying(false));
+  };
+
+  const changeRate = async (r: number) => {
+    setRate(r);
+    if (!audioPath || !playing) return;
+    stopAudio(player.current);
+    await stopAllAfplay();
+    playAt(audioPath, r);
+  };
 
   useEffect(() => {
-    let cancelled = false;
+    mounted.current = true;
     (async () => {
       try {
         const prefs = getPreferenceValues<Prefs>();
@@ -52,8 +86,10 @@ export default function Command() {
         const modelId = prefs.modelId || "eleven_v4_turbo";
         const voiceId = prefs.voiceId?.trim() || "21m00Tcm4TlvDq8ikWAM";
         const outputFormat = prefs.outputFormat || "mp3_44100_128";
-        const rate = parseFloat(prefs.playbackRate || "1") || 1;
-        await showToast({ style: Toast.Style.Animated, title: "Voicing welcome intro…" });
+        const initialRate = parseFloat(prefs.playbackRate || "1") || 1;
+        if (mounted.current) setRate(initialRate);
+
+        await notify({ style: Toast.Style.Animated, title: "Voicing welcome intro…" });
         const audio = await convertTts({
           apiKey: prefs.apiKey,
           voiceId,
@@ -61,33 +97,38 @@ export default function Command() {
           text: INTRO_SCRIPT,
           outputFormat,
         });
-        const path = await saveMp3(audio, "rayvoice-intro");
-        if (cancelled) return;
-
-        setAudioPath(path);
-        setPhase("ready");
-        await showToast({
+        const stamp = newRunStamp();
+        const path = await saveMp3(audio, "rayvoice-intro", stamp);
+        await saveTranscript(
+          INTRO_SCRIPT,
+          "rayvoice-intro",
+          stamp,
+          `RayVoice intro — ${new Date().toLocaleString()} · ${modelId}`
+        );
+        if (mounted.current) {
+          setAudioPath(path);
+          setPhase("ready");
+        }
+        await notify({
           style: Toast.Style.Success,
           title: "Welcome to RayVoice",
           message: path,
         });
 
         if (prefs.autoPlay !== false) {
-          player.current = playMp3(path, rate);
-          setPlaying(true);
-          player.current.on("exit", () => !cancelled && setPlaying(false));
+          playAt(path, initialRate);
         }
       } catch (e) {
-        if (cancelled) return;
+        if (!mounted.current) return;
         const msg = e instanceof Error ? e.message : String(e);
         setError(msg);
         setPhase("error");
-        await showToast({ style: Toast.Style.Failure, title: "Couldn't play intro", message: msg });
+        await notify({ style: Toast.Style.Failure, title: "Couldn't play intro", message: msg });
       }
     })();
     return () => {
-      cancelled = true;
-      stopAudio(player.current);
+      // Intentionally NOT killing playback: audio keeps going if the view closes.
+      mounted.current = false;
       player.current = null;
     };
   }, []);
@@ -95,7 +136,7 @@ export default function Command() {
   const markdown =
     phase === "error"
       ? `# ⚠️ RayVoice failed\n\n${error}\n\n## Fix it\n- Set your API key in Preferences → Extensions → RayVoice (https://elevenlabs.io/app/settings/api-keys).`
-      : `# 👋 Welcome to RayVoice\n\n${phase === "generating" ? "Voicing the intro…" : `${playing ? "▶️ Playing…" : "⏸️ Paused / finished"}\n\n📁 \`${audioPath}\``}\n\n---\n\n${preview(INTRO_SCRIPT, 1200)}\n\n---\n\n**Next:** copy any text, then try **Speak Clipboard as Podcast** or **Clipboard to 2-Host Podcast**.`;
+      : `# 👋 Welcome to RayVoice\n\n${phase === "generating" ? "Voicing the intro…" : `${playing ? `▶️ Playing · ${rate}x · keeps playing if you close this view` : "⏸️ Paused / finished"}\n\n📁 \`${audioPath}\``}\n\n---\n\n${preview(INTRO_SCRIPT, 1200)}\n\n---\n\n**Next:** copy any text, then try **Speak Clipboard as Podcast** or **Clipboard to 2-Host Podcast**.`;
 
   return (
     <Detail
@@ -121,13 +162,11 @@ export default function Command() {
                   icon={Icon.Play}
                   onAction={() => {
                     if (!audioPath) return;
-                    const rate = parseFloat(getPreferenceValues<Prefs>().playbackRate || "1") || 1;
-                    player.current = playMp3(audioPath, rate);
-                    setPlaying(true);
-                    player.current.on("exit", () => setPlaying(false));
+                    playAt(audioPath, rate);
                   }}
                 />
               )}
+              <SpeedMenu current={rate} onSelect={changeRate} />
               <Action
                 title="Reveal in Finder"
                 icon={Icon.Finder}

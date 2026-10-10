@@ -7,11 +7,14 @@ export function downloadsDir(): string {
   return join(homedir(), "Downloads", "RayVoice");
 }
 
-export async function saveMp3(audio: Buffer, prefix: string): Promise<string> {
+export function newRunStamp(): string {
+  return new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+}
+
+export async function saveMp3(audio: Buffer, prefix: string, stamp?: string): Promise<string> {
   const dir = downloadsDir();
   await mkdir(dir, { recursive: true });
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  const path = join(dir, `${prefix}-${stamp}.mp3`);
+  const path = join(dir, `${prefix}-${stamp ?? newRunStamp()}.mp3`);
   await writeFile(path, audio);
   return path;
 }
@@ -21,13 +24,27 @@ export async function saveMp3Part(
   audio: Buffer,
   prefix: string,
   index: number,
-  total: number
+  total: number,
+  stamp?: string
 ): Promise<string> {
   const dir = downloadsDir();
   await mkdir(dir, { recursive: true });
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  const path = join(dir, `${prefix}-p${index + 1}of${total}-${stamp}.mp3`);
+  const path = join(dir, `${prefix}-${stamp ?? newRunStamp()}-p${index + 1}of${total}.mp3`);
   await writeFile(path, audio);
+  return path;
+}
+
+/** Save the narrated text next to the audio so the history view can show it. */
+export async function saveTranscript(
+  transcript: string,
+  prefix: string,
+  stamp: string,
+  meta: string
+): Promise<string> {
+  const dir = downloadsDir();
+  await mkdir(dir, { recursive: true });
+  const path = join(dir, `${prefix}-${stamp}.txt`);
+  await writeFile(path, `# ${meta}\n\n${transcript.trim()}\n`);
   return path;
 }
 
@@ -41,10 +58,18 @@ export function slug(text: string, max = 60): string {
   );
 }
 
+function spawnAfplay(args: string[]): ChildProcess {
+  // Detached + unref: audio keeps playing if the Raycast view closes.
+  // Stopping is done explicitly via the Stop action (tracked child, else killall).
+  const child = spawn("afplay", args, { stdio: "ignore", detached: true });
+  child.unref();
+  return child;
+}
+
 /** Play with macOS afplay. Rate >1 speeds up (and raises pitch). */
 export function playMp3(filePath: string, rate = 1): ChildProcess {
   const args = rate !== 1 ? ["-r", String(rate), filePath] : [filePath];
-  const child = spawn("afplay", args, { stdio: "ignore", detached: false });
+  const child = spawnAfplay(args);
   child.on("error", () => undefined);
   return child;
 }
@@ -55,7 +80,7 @@ export function playMp3Wait(
   rate = 1
 ): { done: Promise<void>; child: ChildProcess } {
   const args = rate !== 1 ? ["-r", String(rate), filePath] : [filePath];
-  const child = spawn("afplay", args, { stdio: "ignore", detached: false });
+  const child = spawnAfplay(args);
   const done = new Promise<void>((resolve) => {
     child.on("exit", () => resolve());
     child.on("error", () => resolve());

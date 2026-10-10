@@ -34,6 +34,8 @@ declare namespace Preferences {
   export type ClipboardPodcast = ExtensionPreferences & {}
   /** Preferences accessible in the `intro` command */
   export type Intro = ExtensionPreferences & {}
+  /** Preferences accessible in the `history` command */
+  export type History = ExtensionPreferences & {}
 }
 
 declare namespace Arguments {
@@ -43,5 +45,7 @@ declare namespace Arguments {
   export type ClipboardPodcast = {}
   /** Arguments passed to the `intro` command */
   export type Intro = {}
+  /** Arguments passed to the `history` command */
+  export type History = {}
 }
 

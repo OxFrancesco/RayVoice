@@ -10,10 +10,19 @@ import {
 } from "@raycast/api";
 import type { ChildProcess } from "node:child_process";
 import { useEffect, useRef, useState } from "react";
-import { playMp3, preview, saveMp3, stopAllAfplay, stopAudio } from "./lib/audio";
+import {
+  newRunStamp,
+  playMp3,
+  preview,
+  saveMp3,
+  saveTranscript,
+  stopAllAfplay,
+  stopAudio,
+} from "./lib/audio";
 import { resolveClipboardText } from "./lib/clipboard";
 import { batchTurns, convertDialogue, parallel } from "./lib/elevenlabs";
 import { buildPodcastScript, cleanForSpeech } from "./lib/script";
+import { SpeedMenu } from "./lib/SpeedMenu";
 
 interface Prefs {
   apiKey: string;
@@ -31,13 +40,41 @@ export default function Command() {
   const [phase, setPhase] = useState<Phase>("reading");
   const [readable, setReadable] = useState("");
   const [audioPath, setAudioPath] = useState<string | null>(null);
+  const [rate, setRate] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [meta, setMeta] = useState("");
   const [playing, setPlaying] = useState(false);
   const player = useRef<ChildProcess | null>(null);
+  const mounted = useRef(true);
+
+  const notify = async (t: { style: Toast.Style; title: string; message?: string }) => {
+    if (!mounted.current) return;
+    try {
+      await showToast(t);
+    } catch {
+      // view closed
+    }
+  };
+
+  const playAt = (path: string, r: number, onExit: () => void) => {
+    player.current = playMp3(path, r);
+    setPlaying(true);
+    player.current.on("exit", () => {
+      if (mounted.current) setPlaying(false);
+      onExit();
+    });
+  };
+
+  const changeRate = async (r: number) => {
+    setRate(r);
+    if (!audioPath || !playing) return; // applies on next play
+    stopAudio(player.current);
+    await stopAllAfplay();
+    playAt(audioPath, r, () => undefined);
+  };
 
   useEffect(() => {
-    let cancelled = false;
+    mounted.current = true;
     (async () => {
       try {
         const prefs = getPreferenceValues<Prefs>();
@@ -45,17 +82,19 @@ export default function Command() {
           throw new Error(
             "Missing ElevenLabs API key. Set it in Preferences → Extensions → RayVoice."
           );
+        const initialRate = parseFloat(prefs.playbackRate || "1") || 1;
+        if (mounted.current) setRate(initialRate);
 
         const { text: clip, usedHistory } = await resolveClipboardText(prefs.apiKey);
         if (cleanForSpeech(clip).length < 10)
           throw new Error("Clipboard text is too short for a podcast.");
         if (usedHistory) {
-          await showToast({
+          await notify({
             style: Toast.Style.Success,
             title: "Skipped your API key — clipboard updated with the real text",
           });
         }
-        if (!cancelled) setPhase("generating");
+        if (mounted.current) setPhase("generating");
 
         const voiceA = prefs.voiceId?.trim() || "21m00Tcm4TlvDq8ikWAM"; // Rachel
         const voiceB = prefs.voiceId2?.trim() || "JBFqnCBsd6RMkjVDRZzb"; // George
@@ -66,16 +105,15 @@ export default function Command() {
             ? "eleven_v4_turbo"
             : requested;
         const outputFormat = prefs.outputFormat || "mp3_44100_128";
-        const rate = parseFloat(prefs.playbackRate || "1") || 1;
 
         const { turns, readable: script } = buildPodcastScript(clip, voiceA, voiceB);
         const batches = batchTurns(turns, 2000);
-        if (!cancelled) {
+        if (mounted.current) {
           setReadable(script);
           setMeta(
-            `${clip.length.toLocaleString()} chars → ${turns.length} turns · ${batches.length} request${batches.length > 1 ? "s" : ""} · ${modelId} · ${rate}x`
+            `${clip.length.toLocaleString()} chars → ${turns.length} turns · ${batches.length} request${batches.length > 1 ? "s" : ""} · ${modelId}`
           );
-          await showToast({ style: Toast.Style.Animated, title: "Writing 2-host script…" });
+          await notify({ style: Toast.Style.Animated, title: "Writing 2-host script…" });
         }
 
         const parts: Buffer[] = await parallel(
@@ -89,29 +127,33 @@ export default function Command() {
               outputFormat,
             })
         );
-        if (cancelled) return;
-        const path = await saveMp3(Buffer.concat(parts), "rayvoice-podcast");
-        if (cancelled) return;
-
-        setAudioPath(path);
-        setPhase("ready");
-        await showToast({
+        const stamp = newRunStamp();
+        const path = await saveMp3(Buffer.concat(parts), "rayvoice-podcast", stamp);
+        await saveTranscript(
+          script,
+          "rayvoice-podcast",
+          stamp,
+          `RayVoice 2-host podcast — ${new Date().toLocaleString()} · ${modelId} · ${turns.length} turns`
+        );
+        if (mounted.current) {
+          setAudioPath(path);
+          setPhase("ready");
+        }
+        await notify({
           style: Toast.Style.Success,
           title: "2-host podcast ready",
           message: path,
         });
 
         if (prefs.autoPlay !== false) {
-          player.current = playMp3(path, rate);
-          setPlaying(true);
-          player.current.on("exit", () => !cancelled && setPlaying(false));
+          playAt(path, initialRate, () => undefined);
         }
       } catch (e) {
-        if (cancelled) return;
+        if (!mounted.current) return;
         const msg = e instanceof Error ? e.message : String(e);
         setError(msg);
         setPhase("error");
-        await showToast({
+        await notify({
           style: Toast.Style.Failure,
           title: "Couldn't generate podcast",
           message: msg,
@@ -119,8 +161,8 @@ export default function Command() {
       }
     })();
     return () => {
-      cancelled = true;
-      stopAudio(player.current);
+      // Intentionally NOT killing playback: audio keeps going if the view closes.
+      mounted.current = false;
       player.current = null;
     };
   }, []);
@@ -129,7 +171,7 @@ export default function Command() {
     phase === "error"
       ? `# ⚠️ RayVoice failed\n\n${error}\n\n## Fix it\n- Copy text first, then re-run.\n- Set your API key in Preferences → Extensions → RayVoice.\n- Dialogue works best with eleven_v4_turbo / eleven_v4 / eleven_v3 (Flash + Multilingual are auto-upgraded to Turbo).`
       : phase === "ready"
-        ? `# 🎙️🎙️ 2-Host Podcast\n\n**${meta}**\n\n${playing ? "▶️ Playing…" : "⏸️ Paused / finished"}\n\n📁 \`${audioPath}\`\n\n---\n\n${preview(readable, 2200)}`
+        ? `# 🎙️🎙️ 2-Host Podcast\n\n**${meta}**\n\n${playing ? `▶️ Playing · ${rate}x · keeps playing if you close this view` : "⏸️ Paused / finished"}\n\n📁 \`${audioPath}\`\n\n---\n\n${preview(readable, 2200)}`
         : `# 🎙️🎙️ RayVoice\n\n${phase === "reading" ? "Reading clipboard…" : `Voicing your podcast…\n\n**${meta || "writing script…"}**`}\n\n${readable ? `---\n\n${preview(readable, 600)}` : ""}`;
 
   return (
@@ -156,13 +198,11 @@ export default function Command() {
                   icon={Icon.Play}
                   onAction={() => {
                     if (!audioPath) return;
-                    const rate = parseFloat(getPreferenceValues<Prefs>().playbackRate || "1") || 1;
-                    player.current = playMp3(audioPath, rate);
-                    setPlaying(true);
-                    player.current.on("exit", () => setPlaying(false));
+                    playAt(audioPath, rate, () => undefined);
                   }}
                 />
               )}
+              <SpeedMenu current={rate} onSelect={changeRate} />
               <Action
                 title="Reveal in Finder"
                 icon={Icon.Finder}
