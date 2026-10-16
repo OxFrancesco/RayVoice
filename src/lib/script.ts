@@ -1,86 +1,91 @@
 import type { DialogueTurn } from "./elevenlabs";
 
-/** Strip markdown-ish noise so TTS doesn't read out URLs/formatting literally. */
+/** Strip markdown so TTS doesn't read out URLs or formatting. */
 export function cleanForSpeech(raw: string): string {
-  return (
-    raw
-      // markdown links [label](url) -> label
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1")
-      // bare urls -> dropped (narrator shouldn't spell them)
-      .replace(/https?:\/\/\S+/g, "")
-      // images ![alt](...) -> alt
-      .replace(/!\[([^\]]*)\][^\s]*/g, "$1")
-      // headings / quotes / bullets / code fences
-      .replace(/^#{1,6}\s+/gm, "")
-      .replace(/^>\s?/gm, "")
-      .replace(/^[-*+]\s+/gm, "")
-      .replace(/```[\s\S]*?```/g, " code sample omitted ")
-      .replace(/`([^`]+)`/g, "$1")
-      .replace(/\*\*([^*]+)\*\*/g, "$1")
-      .replace(/\*([^*]+)\*/g, "$1")
-      .replace(/__([^_]+)__/g, "$1")
-      .replace(/\s+\n/g, "\n")
-      .replace(/[ \t]{2,}/g, " ")
-      .trim()
-  );
+  return raw
+    .replace(/```[\s\S]*?```/g, " Code sample omitted. ")
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^>\s?/gm, "")
+    .replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, "")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
 }
 
+/** Remove v3/v4 audio tags like [excited] for display. */
+export function stripAudioTags(text: string): string {
+  return text.replace(/\[[a-z ]+\]\s*/gi, "").trim();
+}
+
+export const HOSTS = ["Alex", "Sam"] as const;
+
+const LEADS = [
+  "[curious] So here's what you grabbed. ",
+  "",
+  "[thoughtful] Right, and building on that, ",
+  "",
+  "[surprised] Oh, this next bit is interesting. ",
+  "",
+];
+
 /**
- * Turn plain clipboard text into a 2-host podcast script.
- * Heuristic (no LLM needed): intro -> alternate sentence groups -> outro.
- * Keeps Eleven v4 audio tags so delivery is expressive.
+ * Turn clipboard text into a two-host script without an LLM: an intro,
+ * the text split into ~280-char turns that alternate hosts, and an outro.
  */
 export function buildPodcastScript(
   rawText: string,
   voiceA: string,
   voiceB: string
-): { turns: DialogueTurn[]; readable: string } {
+): { turns: DialogueTurn[]; transcript: string } {
   const clean = cleanForSpeech(rawText);
   const sentences = clean
-    .match(/[^.!?]+[.!?]+["”']?\s*|[^.!?]+$/g)
+    .match(/[^.!?]+[.!?]+["'”’)]*\s*|[^.!?]+$/g)
     ?.map((s) => s.trim())
     .filter(Boolean) ?? [clean];
 
-  // Group sentences into ~280-char turns for natural pacing.
   const groups: string[] = [];
   let buf = "";
   for (const s of sentences) {
-    if ((buf + " " + s).trim().length <= 280) {
-      buf = buf ? buf + " " + s : s;
-    } else {
-      if (buf) groups.push(buf);
+    if (buf && (buf + " " + s).length > 280) {
+      groups.push(buf);
       buf = s;
+    } else {
+      buf = buf ? buf + " " + s : s;
     }
   }
   if (buf) groups.push(buf);
 
-  const turns: DialogueTurn[] = [
+  const lines: { host: 0 | 1; text: string }[] = [
     {
-      text: "[excited] Welcome back to RayVoice, the podcast where your clipboard becomes the episode! [friendly] I'm Alex.",
-      voice_id: voiceA,
+      host: 0,
+      text: "[excited] Welcome back to RayVoice, where your clipboard becomes the episode. [friendly] I'm Alex.",
     },
     {
-      text: "[cheerful] And I'm Sam! Today's episode comes straight from something you just copied. Let's get into it.",
-      voice_id: voiceB,
+      host: 1,
+      text: "[cheerful] And I'm Sam. Today's episode is something you just copied, so let's get into it.",
     },
+    ...groups.map((g, i) => {
+      const lead = LEADS[i % LEADS.length];
+      // "building on that, your ear…" reads as one sentence, so drop the capital.
+      const body =
+        lead.endsWith(", ") && /^[A-Z][a-z]/.test(g) ? g[0].toLowerCase() + g.slice(1) : g;
+      return { host: (i % 2) as 0 | 1, text: lead + body };
+    }),
   ];
-
-  groups.forEach((g, i) => {
-    const voice = i % 2 === 0 ? voiceA : voiceB;
-    const lead =
-      i === 0
-        ? "[curious] So here's what you grabbed: "
-        : i % 2 === 0
-          ? "[thoughtful] And building on that: "
-          : "[surprised] Oh, this part is interesting: ";
-    turns.push({ text: `${lead}${g}`, voice_id: voice });
+  lines.push({
+    host: lines[lines.length - 1].host === 0 ? 1 : 0,
+    text: "[warm] That's the episode. Copy something else and we'll be back. [friendly] See you next time!",
   });
 
-  turns.push({
-    text: "[warm] That's the episode! Copy something else anytime and we'll turn it into audio. [friendly] See you next time!",
-    voice_id: voiceB,
-  });
-
-  const readable = turns.map((t, i) => `${i % 2 === 0 ? "Alex" : "Sam"}: ${t.text}`).join("\n\n");
-  return { turns, readable };
+  const turns = lines.map((l) => ({ text: l.text, voice_id: l.host === 0 ? voiceA : voiceB }));
+  const transcript = lines.map((l) => `${HOSTS[l.host]}: ${stripAudioTags(l.text)}`).join("\n\n");
+  return { turns, transcript };
 }

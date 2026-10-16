@@ -8,19 +8,19 @@
 /* eslint-disable @typescript-eslint/ban-types */
 
 type ExtensionPreferences = {
-  /** ElevenLabs API Key - Get one at https://elevenlabs.io/app/settings/api-keys (free tier includes ~10 min/mo). */
+  /** ElevenLabs API Key - Create one at elevenlabs.io/app/settings/api-keys. */
   "apiKey": string,
-  /** Voice ID (Host 1 / Narrator) - Voice ID from elevenlabs.io/app/voice-library. Default is Rachel. */
+  /** Voice ID (Host 1 / Narrator) - Any voice ID from elevenlabs.io/app/voice-library. Default is Rachel. */
   "voiceId": string,
-  /** Voice ID (Host 2, dialogue only) - Second voice for the 2-host podcast command. Default is George. */
+  /** Voice ID (Host 2, dialogue only) - Second voice for the 2-host podcast. Default is George. */
   "voiceId2": string,
-  /** ElevenLabs Model - Turbo is ~10x faster with the same expressiveness. v4 max quality, Flash fastest/cheapest. */
+  /** ElevenLabs Model - Turbo starts fastest. Text-to-Dialogue uses Turbo when Flash or Multilingual is picked. */
   "modelId": "eleven_v4_turbo" | "eleven_v4" | "eleven_v3" | "eleven_multilingual_v2" | "eleven_flash_v2_5",
-  /** Audio Format - MP3 128kbps works everywhere. Lower bitrates save credits/bandwidth slightly. */
+  /** Audio Format - 128 kbps sounds best. Lower bitrates make smaller files. */
   "outputFormat": "mp3_44100_128" | "mp3_44100_64" | "mp3_22050_32",
-  /** Playback - Auto-play the MP3 after generating it. */
+  /** Playback - Start playing as soon as the first part is ready. */
   "autoPlay": boolean,
-  /** Playback Speed - How fast to play the audio. Note: afplay speeds up pitch too above 1x. */
+  /** Playback Speed - Starting speed. Change it while listening with ⌘S. */
   "playbackRate": "1" | "1.25" | "1.5" | "1.75" | "2"
 }
 

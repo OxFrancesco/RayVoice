@@ -1,8 +1,8 @@
 import { Action, ActionPanel, Icon, Keyboard } from "@raycast/api";
 
-export const SPEEDS = [1, 1.25, 1.5, 1.75, 2];
+const SPEEDS = [1, 1.25, 1.5, 1.75, 2];
 
-/** In-view playback-speed picker. Works without opening Preferences. */
+/** Changing speed mid-play restarts the current part at the new rate. */
 export function SpeedMenu({
   current,
   onSelect,
@@ -19,8 +19,8 @@ export function SpeedMenu({
       {SPEEDS.map((s) => (
         <Action
           key={s}
-          title={s === 1 ? "1X (Normal)" : `${s}x`}
-          icon={s === current ? Icon.CheckCircle : Icon.Circle}
+          title={`${s}×`}
+          icon={s === current ? Icon.Checkmark : undefined}
           onAction={() => onSelect(s)}
         />
       ))}

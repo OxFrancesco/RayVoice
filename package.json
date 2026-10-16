@@ -2,41 +2,47 @@
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "rayvoice",
   "title": "RayVoice",
-  "description": "Turn your latest clipboarded text into an audio podcast with ElevenLabs Eleven v4 TTS. Single-voice narration + two-host dialogue.",
+  "description": "Turn the text on your clipboard into a narrated episode or a two-host podcast with ElevenLabs.",
   "icon": "icon.png",
   "author": "francesco_oddo",
-  "categories": ["Communication", "Fun", "Productivity"],
+  "categories": [
+    "Communication",
+    "Fun",
+    "Productivity"
+  ],
   "license": "MIT",
-  "platforms": ["macOS"],
+  "platforms": [
+    "macOS"
+  ],
   "commands": [
     {
       "name": "clipboard-speech",
       "title": "Speak Clipboard as Podcast",
-      "description": "Read clipboard text aloud with ElevenLabs Eleven v4 (single voice). Saves MP3 and auto-plays.",
+      "description": "Read the clipboard aloud in one voice. Playback starts as soon as the first sentences are voiced.",
       "mode": "view"
     },
     {
       "name": "clipboard-podcast",
       "title": "Clipboard to 2-Host Podcast",
-      "description": "Turn clipboard text into a two-host podcast dialogue with ElevenLabs Text-to-Dialogue (Eleven v4).",
+      "description": "Turn the clipboard into a conversation between two hosts with ElevenLabs Text-to-Dialogue.",
       "mode": "view"
     },
     {
       "name": "intro",
       "title": "Play Welcome Intro",
-      "description": "Hear a short predefined RayVoice tour. No clipboard needed — great for testing your setup.",
+      "description": "A short spoken tour of RayVoice. Voiced once, then replayed from cache.",
       "mode": "view"
     },
     {
       "name": "history",
       "title": "Browse Past Episodes",
-      "description": "All your generated audio + transcripts in one place. Replay, read, or delete them.",
+      "description": "Replay, search, and manage every episode and transcript.",
       "mode": "view"
     },
     {
       "name": "stop",
       "title": "Stop Playback Now",
-      "description": "Instantly silence any RayVoice audio playing in the background.",
+      "description": "Stop RayVoice audio from anywhere.",
       "mode": "no-view"
     }
   ],
@@ -44,7 +50,7 @@
     {
       "name": "apiKey",
       "title": "ElevenLabs API Key",
-      "description": "Get one at https://elevenlabs.io/app/settings/api-keys (free tier includes ~10 min/mo).",
+      "description": "Create one at elevenlabs.io/app/settings/api-keys.",
       "type": "password",
       "required": true,
       "placeholder": "sk_..."
@@ -52,7 +58,7 @@
     {
       "name": "voiceId",
       "title": "Voice ID (Host 1 / Narrator)",
-      "description": "Voice ID from elevenlabs.io/app/voice-library. Default is Rachel.",
+      "description": "Any voice ID from elevenlabs.io/app/voice-library. Default is Rachel.",
       "type": "textfield",
       "required": false,
       "placeholder": "21m00Tcm4TlvDq8ikWAM",
@@ -61,7 +67,7 @@
     {
       "name": "voiceId2",
       "title": "Voice ID (Host 2, dialogue only)",
-      "description": "Second voice for the 2-host podcast command. Default is George.",
+      "description": "Second voice for the 2-host podcast. Default is George.",
       "type": "textfield",
       "required": false,
       "placeholder": "JBFqnCBsd6RMkjVDRZzb",
@@ -70,35 +76,59 @@
     {
       "name": "modelId",
       "title": "ElevenLabs Model",
-      "description": "Turbo is ~10x faster with the same expressiveness. v4 max quality, Flash fastest/cheapest.",
+      "description": "Turbo starts fastest. Text-to-Dialogue uses Turbo when Flash or Multilingual is picked.",
       "type": "dropdown",
       "required": false,
       "default": "eleven_v4_turbo",
       "data": [
-        { "title": "Eleven v4 Turbo (fast + expressive, recommended)", "value": "eleven_v4_turbo" },
-        { "title": "Eleven v4 (max quality, slower)", "value": "eleven_v4" },
-        { "title": "Eleven v3 (expressive, previous gen)", "value": "eleven_v3" },
-        { "title": "Multilingual v2 (most stable)", "value": "eleven_multilingual_v2" },
-        { "title": "Flash v2.5 (fastest, cheapest, flat)", "value": "eleven_flash_v2_5" }
+        {
+          "title": "Eleven v4 Turbo (fast + expressive, recommended)",
+          "value": "eleven_v4_turbo"
+        },
+        {
+          "title": "Eleven v4 (max quality, slower)",
+          "value": "eleven_v4"
+        },
+        {
+          "title": "Eleven v3 (expressive, previous gen)",
+          "value": "eleven_v3"
+        },
+        {
+          "title": "Multilingual v2 (most stable)",
+          "value": "eleven_multilingual_v2"
+        },
+        {
+          "title": "Flash v2.5 (fastest, cheapest, flat)",
+          "value": "eleven_flash_v2_5"
+        }
       ]
     },
     {
       "name": "outputFormat",
       "title": "Audio Format",
-      "description": "MP3 128kbps works everywhere. Lower bitrates save credits/bandwidth slightly.",
+      "description": "128 kbps sounds best. Lower bitrates make smaller files.",
       "type": "dropdown",
       "required": false,
       "default": "mp3_44100_128",
       "data": [
-        { "title": "MP3 44.1kHz 128kbps (default)", "value": "mp3_44100_128" },
-        { "title": "MP3 44.1kHz 64kbps", "value": "mp3_44100_64" },
-        { "title": "MP3 22kHz 32kbps (smallest)", "value": "mp3_22050_32" }
+        {
+          "title": "MP3 44.1kHz 128kbps (default)",
+          "value": "mp3_44100_128"
+        },
+        {
+          "title": "MP3 44.1kHz 64kbps",
+          "value": "mp3_44100_64"
+        },
+        {
+          "title": "MP3 22kHz 32kbps (smallest)",
+          "value": "mp3_22050_32"
+        }
       ]
     },
     {
       "name": "autoPlay",
       "title": "Playback",
-      "description": "Auto-play the MP3 after generating it.",
+      "description": "Start playing as soon as the first part is ready.",
       "type": "checkbox",
       "required": false,
       "label": "Auto-play audio",
@@ -107,16 +137,31 @@
     {
       "name": "playbackRate",
       "title": "Playback Speed",
-      "description": "How fast to play the audio. Note: afplay speeds up pitch too above 1x.",
+      "description": "Starting speed. Change it while listening with ⌘S.",
       "type": "dropdown",
       "required": false,
       "default": "1",
       "data": [
-        { "title": "1x (normal)", "value": "1" },
-        { "title": "1.25x", "value": "1.25" },
-        { "title": "1.5x", "value": "1.5" },
-        { "title": "1.75x", "value": "1.75" },
-        { "title": "2x", "value": "2" }
+        {
+          "title": "1x (normal)",
+          "value": "1"
+        },
+        {
+          "title": "1.25x",
+          "value": "1.25"
+        },
+        {
+          "title": "1.5x",
+          "value": "1.5"
+        },
+        {
+          "title": "1.75x",
+          "value": "1.75"
+        },
+        {
+          "title": "2x",
+          "value": "2"
+        }
       ]
     }
   ],

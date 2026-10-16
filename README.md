@@ -1,31 +1,30 @@
-# RayVoice 🎙️
+# RayVoice
 
-Turn your latest clipboarded text into an audio podcast with ElevenLabs. Default model is **`eleven_v4_turbo`** (same expressiveness as v4, ~100ms latency) — switch to `eleven_v4` in preferences for max quality.
+Turn the text on your clipboard into audio with ElevenLabs. Default model is `eleven_v4_turbo`.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| **Speak Clipboard as Podcast** (`clipboard-speech`) | Narrates clipboard text in a single expressive voice. Chunks long text, concatenates MP3, saves to `~/Downloads/RayVoice/`, auto-plays. |
-| **Clipboard to 2-Host Podcast** (`clipboard-podcast`) | Rewrites clipboard text into an Alex + Sam dialogue (intro → alternating turns → outro) via ElevenLabs **Text-to-Dialogue**, with v4 audio tags (`[excited]`, `[curious]`…). |
-| **Play Welcome Intro** (`intro`) | Predefined tour of the extension with a fixed script. Needs no clipboard — run it right after setup to test your key and voice. |
-| **Browse Past Episodes** (`history`) | One bucket for everything generated: replay audio, read transcripts, delete old episodes. |
-| **Stop Playback Now** (`stop`) | No-view kill switch: instantly silences background audio from anywhere in Raycast. |
+| Speak Clipboard as Podcast | Reads the clipboard in one voice. The first sentence plays about a second after you run it. |
+| Clipboard to 2-Host Podcast | Turns the clipboard into an Alex and Sam conversation with Text-to-Dialogue. |
+| Play Welcome Intro | Short spoken tour. Voiced once per voice and model, then played from cache. |
+| Browse Past Episodes | Search transcripts, replay, open in your default player, copy the audio file, delete. |
+| Stop Playback Now | Stops RayVoice audio from anywhere. |
 
-Every run saves its transcript as a `.txt` sidecar next to the MP3, so the bucket can show and search it.
+Change speed while listening with ⌘S. Episodes land in `~/Downloads/RayVoice/` as one MP3 plus a `.txt` transcript.
+
+## How it works
+
+`assets/rayvoice-engine.sh` runs detached from Raycast, so closing the window doesn't stop anything.
+
+- `fetch` sends the parts to ElevenLabs with `curl`, two at a time. curl retries 429s and 5xx on its own and honors `Retry-After`. When every part is in, the engine strips each part's ID3 tag and Info frame and joins them, so players see the full length.
+- `play` plays files in order and waits for parts that are still being voiced. A speed change sends it `SIGUSR1`, which restarts the current part at the new rate.
+
+Part sizes grow (150, 500, 1,500, then 3,000 characters), so the first audio is quick and each later part is ready before the one ahead of it finishes. The API key goes to curl through a `0600` header file that's deleted when the job ends. It never appears in a process list.
 
 ## Setup
 
-1. Get a free API key: https://elevenlabs.io/app/settings/api-keys (free tier ≈ 10k credits ≈ 10 min/mo).
-2. `npm install && npm run dev`, then open Raycast → Import Extension → select this folder.
-3. Raycast → Preferences → Extensions → RayVoice → paste **API Key**.
-4. Optional: change Voice IDs (defaults: Rachel `21m00Tcm4TlvDq8ikWAM` + George `JBFqnCBsd6RMkjVDRZzb`), model (`eleven_v4` default), format, auto-play.
-
-Copy any text, hit the command, get an MP3 in `~/Downloads/RayVoice/` that starts playing.
-
-## Notes
-
-- `eleven_v4` limit: 10,000 chars/req (auto-chunked). Dialogue batches capped at ~2,000 chars/req for reliability.
-- Markdown/URLs are stripped before TTS so it doesn't spell out links.
-- Playback uses macOS `afplay`. Stop from the Detail view action.
-- 401 = bad key, 402 = out of credits, 429 = rate limit.
+1. Create an API key at https://elevenlabs.io/app/settings/api-keys.
+2. `npm install && npm run dev`, then paste the key into the extension preferences.
+3. Optional: change the voice IDs (defaults are Rachel and George), model, format, auto-play, and starting speed.
